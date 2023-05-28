@@ -130,3 +130,9 @@ class VAE(nn.Module):
         x = self.decoder(z)
 
         return x, mu, logvar
+    
+    def encoder(self, x):
+        return self.encoder(x)
+    
+    def decoder(self, z):
+        return self.decoder(z)
