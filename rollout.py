@@ -5,13 +5,19 @@ from PIL import Image
 import numpy as np
 import numpy.random as nr
 
+ENV_SEED = 1024
+
 class CarRacing_rollouts():
     def __init__(self):
-        self.env = gym.make('CarRacing-v2', render_mode='rgb_array')
+        self.env = gym.make('CarRacing-v2', render_mode='rgb_array', domain_randomize=True)
+        self.env.seed(ENV_SEED)
         self.file_dir = './data/CarRacing/'
 
     def get_rollouts(self, num_rollouts=10000, reflesh_rate=20):
-        for i in tqdm.tqdm(range(num_rollouts)):
+        start_idx = 0
+        if os.path.exists(self.file_dir):
+            start_idx = len(os.listdir(self.file_dir))
+        for i in tqdm.tqdm(start_idx, range(num_rollouts)):
             state_sequence = []
             action_sequence = []
             reward_sequence = []
