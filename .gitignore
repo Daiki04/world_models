@@ -4,6 +4,10 @@ __pycache__/
 *$py.class
 
 data/
+data_z/
+hist/
+*.npz
+*.pth
 
 # C extensions
 *.so

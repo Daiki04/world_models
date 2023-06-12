@@ -56,7 +56,7 @@ class MDN(nn.Module):
         return p, mu, sigma, r
     
 
-class MDRNN(nn.Module):
+class MDNRNN(nn.Module):
     """MDN-RNN"""
     def __init__(self, z_size, a_size, r_size, hidden_size=256, num_layers=1, num_gaussians=5):
         super().__init__()

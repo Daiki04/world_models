@@ -4,20 +4,21 @@ import gym
 from PIL import Image
 import numpy as np
 import numpy.random as nr
-
-ENV_SEED = 1024
+import argparse
+from models.VAE import VAE
+import torch
 
 class CarRacing_rollouts():
-    def __init__(self):
+    def __init__(self, seed_num=0):
         self.env = gym.make('CarRacing-v2', render_mode='rgb_array', domain_randomize=True)
-        self.env.seed(ENV_SEED)
+        self.env.reset(seed=seed_num)
         self.file_dir = './data/CarRacing/'
 
-    def get_rollouts(self, num_rollouts=10000, reflesh_rate=20):
+    def get_rollouts(self, num_rollouts=10000, reflesh_rate=20, max_episode=3000):
         start_idx = 0
         if os.path.exists(self.file_dir):
-            start_idx = len(os.listdir(self.file_dir))
-        for i in tqdm.tqdm(start_idx, range(num_rollouts)):
+            start_idx = len(os.listdir(self.file_dir)) 
+        for i in tqdm.tqdm(range(start_idx, num_rollouts+1)):
             state_sequence = []
             action_sequence = []
             reward_sequence = []
@@ -25,7 +26,7 @@ class CarRacing_rollouts():
             state = self.env.reset()
             done = False
             iter = 0
-            while not done:
+            while (not done) and iter < max_episode:
                 if iter % reflesh_rate == 0:
                     if iter < 20:
                         steering = -0.1
@@ -44,10 +45,26 @@ class CarRacing_rollouts():
                 done_sequence.append(done)
                 iter += 1
             np.savez_compressed(os.path.join(self.file_dir, 'rollout_{}.npz'.format(i)), state=state_sequence, action=action_sequence, reward=reward_sequence, done=done_sequence)
+            # np.savez(os.path.join(self.file_dir, 'rollout_{}.npz'.format(i)), state=state_sequence, action=action_sequence, reward=reward_sequence, done=done_sequence)
 
     def load_rollout(self, idx_rolloout):
         data = np.load(os.path.join(self.file_dir, 'rollout_{}.npz'.format(idx_rolloout)))
         return data['state'], data['action'], data['reward'], data['done']
+    
+    def rollout_to_z(self):
+        vae = VAE()
+        checkpoint = torch.load('./vae.pth')
+        vae.load_state_dict(checkpoint['model_state_dict'])
+        vae.eval()
+
+        with torch.no_grad():
+            for i in tqdm.tqdm(range(10001)):
+                state, action, reward, done = self.load_rollout(i)
+                state = torch.tensor(state).float()
+                state = state.permute(0, 3, 1, 2)
+                z, mu, logvar = vae.encode(state)
+                z, mu, logvar = z.detach().numpy(), mu.detach().numpy(), logvar.detach().numpy()
+                np.savez_compressed("./data_z/rollout_z_{}.npz".format(i), z=z, mu=mu, logvar=logvar, action=action, reward=reward, done=done)
 
     def reshape_state(self, state):
         HEIGHT = 64
@@ -64,3 +81,17 @@ class CarRacing_rollouts():
         for i in range(len(state)):
             img = Image.fromarray(state[i])
             img.save(os.path.join(self.file_dir, 'rollout_{}.gif'.format(idx_rolloout, i)))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_rollouts', type=int, default=10000)
+    parser.add_argument('--max_episode', type=int, default=3000)
+    parser.add_argument('--reflesh_rate', type=int, default=20)
+    parser.add_argument('--env_name', type=str, default='CarRacing')
+    args = parser.parse_args()
+    if args.env_name == 'CarRacing':
+        env = CarRacing_rollouts()
+    else:
+        raise NotImplementedError
+    
+    env.get_rollouts(args.num_rollouts, args.reflesh_rate, args.max_episode)
