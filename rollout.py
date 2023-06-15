@@ -51,6 +51,10 @@ class CarRacing_rollouts():
         data = np.load(os.path.join(self.file_dir, 'rollout_{}.npz'.format(idx_rolloout)))
         return data['state'], data['action'], data['reward'], data['done']
     
+    def load_rollout_z(self, idx_rolloout):
+        data = np.load("./data_z/rollout_z_{}.npz".format(idx_rolloout))
+        return data['z'], data['mu'], data['logvar'], data['action'], data['reward'], data['done']
+    
     def rollout_to_z(self):
         vae = VAE()
         checkpoint = torch.load('./vae.pth')
