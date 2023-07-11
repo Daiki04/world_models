@@ -8,6 +8,7 @@ data_z/
 hist/
 *.npz
 *.pth
+*.db
 
 # C extensions
 *.so
