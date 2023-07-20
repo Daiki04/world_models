@@ -85,7 +85,7 @@ class MDNRNN(nn.Module):
     def forward(self, z, a, hidden, cell):
         out, h, c = self.lstm(z, a, hidden, cell)
         pi, mu, logsigma = self.mdn(out)
-        return pi, mu, logsigma
+        return pi, mu, logsigma, h, c
 
 """
 input:
@@ -98,19 +98,38 @@ output:
 """
 import math
 
+# def loss_func(seq_len, batch_size, z_size, num_mixtures, pi, mu, logsigma, y_true):
+#     y_true = y_true.view(seq_len, batch_size, z_size, 1) # (seq_len, batch, 1, z_size)
+
+#     pi = pi.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
+#     mu = mu.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
+#     logsigma = logsigma.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
+
+#     pi = pi - torch.max(pi, dim=3)[0].view(seq_len, batch_size, z_size, 1) # (seq_len, batch, z_size, num_mixtures)
+#     logpi = nn.LogSoftmax(dim=3)(pi) # (seq_len, batch, z_size, num_mixtures)
+#     loggausian = -0.5 * (2*logsigma + (y_true - mu)**2 / (torch.exp(logsigma))**2) # (seq_len, batch, z_size, num_mixtures)
+
+#     loss = logpi + loggausian # (seq_len, batch, z_size, num_mixtures)
+#     loss = torch.sum(loss, dim=3) # (seq_len, batch, num_mixtures)
+#     loss = -loss # (seq_len, batch, num_mixtures)
+#     return torch.mean(loss)
+
 def loss_func(seq_len, batch_size, z_size, num_mixtures, pi, mu, logsigma, y_true):
-    y_true = y_true.view(seq_len, batch_size, z_size, 1) # (seq_len, batch, 1, z_size)
+    y_true = y_true.view(seq_len, batch_size, z_size, 1) # (seq_len, batch, z_size, 1)
 
     pi = pi.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
     mu = mu.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
     logsigma = logsigma.view(seq_len, batch_size, z_size, num_mixtures) # (seq_len, batch, z_size, num_mixtures)
 
-    torch.max(pi, dim=3)[0].shape
     pi = pi - torch.max(pi, dim=3)[0].view(seq_len, batch_size, z_size, 1) # (seq_len, batch, z_size, num_mixtures)
-    logpi = nn.LogSoftmax(dim=3)(pi) # (seq_len, batch, z_size, num_mixtures)
+    exppi = torch.exp(pi) # (seq_len, batch, z_size, num_mixtures)
+    sumexppi = torch.sum(exppi, dim=3).view(seq_len, batch_size, z_size, 1) # (seq_len, batch, z_size, 1)
+    logpi = pi - torch.log(sumexppi) # (seq_len, batch, z_size, num_mixtures)
     loggausian = -0.5 * (2*logsigma + (y_true - mu)**2 / (torch.exp(logsigma))**2) # (seq_len, batch, z_size, num_mixtures)
 
     loss = logpi + loggausian # (seq_len, batch, z_size, num_mixtures)
-    loss = torch.sum(loss, dim=3) # (seq_len, batch, num_mixtures)
-    loss = -loss # (seq_len, batch, num_mixtures)
+    loss = torch.exp(loss) # (seq_len, batch, z_size, num_mixtures)
+    loss = torch.sum(loss, dim=3) # (seq_len, batch, z_size)
+    loss = -torch.log(loss) # (seq_len, batch, z_size)
+    loss = torch.sum(loss, dim=2) # (seq_len, batch)
     return torch.mean(loss)

@@ -81,7 +81,7 @@ def play(params, seed_num=0):
         vae.to(device)
 
         mdnrnn = MDNRNN().to(device)
-        checkpoint = torch.load('mdnrnn.pth')
+        checkpoint = torch.load('mdnrnn5.pth')
         mdnrnn.load_state_dict(checkpoint['model_state_dict'])
         mdnrnn = mdnrnn.eval()
         mdnrnn.to(device)
@@ -112,7 +112,7 @@ def play(params, seed_num=0):
                 state, reward, done, _, _ = env.step(action)
                 total_reward += reward
                 steps += 1
-                if steps > 3000 or done:
+                if steps > 6000 or done:
                     break
         
             agent_reward += total_reward
@@ -124,7 +124,7 @@ def objective(trial):
     params_size = (z_size + h_size) * a_size + a_size
     params = np.random.standard_cauchy(params_size) * 0.1
     for i in range(params_size):
-        params[i] = trial.suggest_uniform('param_{}'.format(i), -2.0, 2.0)
+        params[i] = trial.suggest_uniform('param_{}'.format(i), -10.0, 10.0)
     return play(params)
 
 def optimize(study_name, storage, n_trials):
@@ -138,10 +138,10 @@ def optimize(study_name, storage, n_trials):
     study.optimize(objective, n_trials=n_trials)
 
 if __name__ == '__main__':
-    DATABASE_URI = 'sqlite:///controller.db'
+    DATABASE_URI = 'sqlite:///controller3.db'
     study_name = 'controller_params1'
 
-    n_trials = 2000
+    n_trials = 1000
     now = 0
 
     n_trials = n_trials - now
